@@ -22,22 +22,46 @@ public:
         bool passed;
         string output;
         string error;
+        bool cheatDetected;
     };
 
     Result compileAndRun(const string& userCode, const string& expected) {
         Result res;
         res.success = false;
         res.passed = false;
+        res.cheatDetected = false;
 
-        // Сохраняем код пользователя КАК ЕСТЬ
+        // АНТИ-ЧИТ
+        vector<string> forbidden = {
+            "system(",
+            "while",
+            "for",
+            "goto",
+            "#define"
+        };
+
+        for (const auto& pattern : forbidden) {
+            if (userCode.find(pattern) != string::npos) {
+                res.cheatDetected = true;
+                res.error = "Запрещенная конструкция: " + pattern;
+                return res;
+            }
+        }
+
+        // Подставляем библиотеки и using namespace std
+        string fullCode =
+            "#include <iostream>\n"
+            "#include <string>\n"
+            "#include <vector>\n"
+            "using namespace std;\n\n"
+            + userCode;
+
         ofstream file("temp.cpp");
-        file << userCode;  // Ничего не добавляем!
+        file << fullCode;
         file.close();
 
-        // Компилируем
         system("g++ temp.cpp -o temp.exe 2> err.txt");
 
-        // Проверяем ошибки
         ifstream err("err.txt");
         getline(err, res.error, '\0');
         err.close();
@@ -46,15 +70,12 @@ public:
             return res;
         }
 
-        // Запускаем
         system("temp.exe > out.txt");
 
-        // Читаем вывод
         ifstream out("out.txt");
         getline(out, res.output, '\0');
         out.close();
 
-        // Чистим
         system("del temp.cpp temp.exe err.txt out.txt >nul 2>nul");
 
         res.success = true;
@@ -156,7 +177,6 @@ public:
         idOtv = id;
     }
 
-    // ИСПОЛЬЗОВАТЬ ТОЛЬКО ЕСЛИ В ПАРАМЕТРЕ ПО УМОЛЧАНИЮ 3!! ЗНАЧЕНИЯ (т.е. проверка вопросов)
     bool askQuestSFML(QuestWindow& qw, int& elapsed) {
         auto start = chrono::steady_clock::now();
         bool correct = qw.show(txtQuest, varOtv, idOtv);
@@ -165,31 +185,46 @@ public:
         return correct;
     }
 
-    // ИСПОЛЬЗОВАТЬ ТОЛЬКО ЕСЛИ В ПАРАМЕТРЕ ПО УМОЛЧАНИЮ 2!! ЗНАЧЕНИЯ (т.е. проверка кода)
     bool ask_code_QuestSFML(QuestWindow& qw, int& elapsed) {
         auto start = chrono::steady_clock::now();
-
-        // Получаем код от фронтенда
         string userCode = qw.getCode(txtQuest);
-
-        // Компилируем и проверяем
         Compiler compiler;
         auto result = compiler.compileAndRun(userCode, expected);
-
         auto end = chrono::steady_clock::now();
         elapsed = chrono::duration_cast<chrono::seconds>(end - start).count();
-
-        return result.passed;  // возвращаем true/false
+        return result.passed;
     }
 };
 
-class loc1 {
-public:
+// ==================== БАЗОВЫЙ КЛАСС ====================
+class lvls {
+protected:
     player& p;
 
-    loc1(player& playerRef) : p(playerRef) {}
+public:
+    lvls(player& playerRef) : p(playerRef) {}
+    virtual ~lvls() = default;
 
-    // ==================== ЛЕС (ВОЛКИ) ====================
+    void reduceTime(int t) { p.time_reduce(t); }
+    void addScore(int s) { p.score_plus(s); }
+    void reduceScore(int s) { p.score_minus(s); }
+    void reduceStatus(int s = 1) { p.reducestatus(s); }
+    bool isAlive() { return p.isAlive(); }
+
+    void applyBuff(int t = 1) { buff b(p, t); b.moral(); }
+    void applyDebuff(int t = 2, string type = "pain") {
+        debuf db(p, t);
+        if (type == "water") db.water();
+        else if (type == "pain") db.pain();
+        else if (type == "scary") db.scary();
+    }
+};
+
+// ==================== LOC1 ====================
+class loc1 : public lvls {
+public:
+    loc1(player& playerRef) : lvls(playerRef) {}
+
     int forest(QuestWindow& qw) {
         questions q("Name the main principles of OOP", 2, {
             "Indexing, abstraction, arraying",
@@ -200,25 +235,22 @@ public:
 
         int elapsed;
         if (q.askQuestSFML(qw, elapsed)) {
-            p.time_reduce(elapsed);
-            p.score_plus(20);
-            buff b(p, 1);
-            b.moral();
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            addScore(20);
+            applyBuff(1);
+            if (!isAlive()) return -1;
             return 1;
         }
         else {
-            p.time_reduce(elapsed);
-            debuf db(p, 2);
-            p.time_reduce(10);
-            db.pain();
-            p.score_minus(10);
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            applyDebuff(2, "pain");
+            reduceTime(10);
+            reduceScore(10);
+            if (!isAlive()) return -1;
             return 0;
         }
     }
 
-    // ==================== РЕКА ====================
     int river(QuestWindow& qw) {
         questions q("What is a class in OOP?", 1, {
             "Data structure",
@@ -229,23 +261,21 @@ public:
 
         int elapsed;
         if (q.askQuestSFML(qw, elapsed)) {
-            p.time_reduce(elapsed);
-            p.score_plus(20);
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            addScore(20);
+            if (!isAlive()) return -1;
             return 1;
         }
         else {
-            p.time_reduce(elapsed);
-            debuf db(p, 1);
-            p.time_reduce(10);
-            db.water();
-            p.score_minus(10);
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            applyDebuff(1, "water");
+            reduceTime(10);
+            reduceScore(10);
+            if (!isAlive()) return -1;
             return 0;
         }
     }
 
-    // ==================== КАНЬОН ====================
     int canion(QuestWindow& qw) {
         questions q("What are virtual functions in OOP?", 3, {
             "1", "2", "3", "4"
@@ -253,46 +283,43 @@ public:
 
         if (p.get_status() > 0) {
             q.addQuest("5");
-            p.time_reduce(5);
-            p.reducestatus();
+            reduceTime(5);
+            reduceStatus();
 
             int elapsed;
             if (q.askQuestSFML(qw, elapsed)) {
-                p.time_reduce(elapsed);
-                buff b(p, 1);
-                p.score_plus(30);
-                b.moral();
-                if (!p.isAlive()) return -1;
+                reduceTime(elapsed);
+                addScore(30);
+                applyBuff(1);
+                if (!isAlive()) return -1;
                 return 1;
             }
             else {
-                p.time_reduce(elapsed);
-                p.score_minus(10);
-                p.time_reduce(10);
-                if (!p.isAlive()) return -1;
+                reduceTime(elapsed);
+                reduceScore(10);
+                reduceTime(10);
+                if (!isAlive()) return -1;
                 return 0;
             }
         }
 
         int elapsed;
         if (q.askQuestSFML(qw, elapsed)) {
-            p.time_reduce(elapsed);
-            p.score_plus(20);
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            addScore(20);
+            if (!isAlive()) return -1;
             return 1;
         }
         else {
-            p.time_reduce(elapsed);
-            p.score_minus(10);
-            p.time_reduce(10);
-            debuf db(p, 1);
-            db.scary();
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            reduceScore(10);
+            reduceTime(10);
+            applyDebuff(1, "scary");
+            if (!isAlive()) return -1;
             return 0;
         }
     }
 
-    // ==================== ГЛУБОКИЙ ЛЕС (МЕДВЕДЬ) ====================
     int deepforest(QuestWindow& qw) {
         questions q("What is an abstract class in OOP?", 0, {
             "A template or base for other classes that inherit from it",
@@ -304,44 +331,39 @@ public:
         if (p.get_status() > 0) {
             q.addQuest("A template or base for other classes that inherit from it");
             q.changeAnswer(4, "A class that has at least one private member");
-            p.time_reduce(5);
-            p.reducestatus();
+            reduceTime(5);
+            reduceStatus();
         }
 
         int elapsed;
         if (q.askQuestSFML(qw, elapsed)) {
-            p.time_reduce(elapsed);
-            buff b(p, 1);
-            p.score_plus(20);
-            b.moral();
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            addScore(20);
+            applyBuff(1);
+            if (!isAlive()) return -1;
             return 1;
         }
         else {
-            p.time_reduce(elapsed);
-            debuf db(p, 1);
-            p.time_reduce(10);
-            p.score_minus(20);
-            db.pain();
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            applyDebuff(1, "pain");
+            reduceTime(10);
+            reduceScore(20);
+            if (!isAlive()) return -1;
             return 0;
         }
     }
 
-    // ==================== ДЕРЕВНЯ ====================
     int village(QuestWindow& qw) {
         if (p.get_status() > 0) {
-            buff b(p, 1);
-            b.moral();
+            applyBuff(1);
         }
-        return 1;  // всегда успех
+        return 1;
     }
 
-    // ==================== РЫНОК ====================
     int market(QuestWindow& qw) {
         if (p.get_status() > 0) {
-            p.reducestatus();
-            p.time_reduce(5);
+            reduceStatus();
+            reduceTime(5);
         }
 
         questions q("What is encapsulation?", 2, {
@@ -350,51 +372,47 @@ public:
 
         int elapsed;
         if (q.askQuestSFML(qw, elapsed)) {
-            p.time_reduce(elapsed);
-            p.score_plus(20);
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            addScore(20);
+            if (!isAlive()) return -1;
             return 1;
         }
         else {
-            p.time_reduce(elapsed);
-            p.score_minus(10);
-            debuf db(p, 1);
-            db.pain();
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            reduceScore(10);
+            applyDebuff(1, "pain");
+            if (!isAlive()) return -1;
             return 0;
         }
     }
 
-    // ==================== САРАЙ (ГУСЬ) ====================
     int barn(QuestWindow& qw) {
         questions q("OOP question", 0, {
             "1", "2", "3", "4"
             });
 
         if (p.get_status() > 0) {
-            p.reducestatus();
-            p.time_reduce(5);
+            reduceStatus();
+            reduceTime(5);
             q.addQuest("5");
         }
 
         int elapsed;
         if (q.askQuestSFML(qw, elapsed)) {
-            p.time_reduce(elapsed);
-            p.score_plus(20);
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            addScore(20);
+            if (!isAlive()) return -1;
             return 1;
         }
         else {
-            p.time_reduce(elapsed);
-            p.score_minus(10);
-            debuf db(p, 1);
-            db.pain();
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            reduceScore(10);
+            applyDebuff(1, "pain");
+            if (!isAlive()) return -1;
             return 0;
         }
     }
 
-    // ==================== ПОЛЕ (ХИМЕРА) ====================
     int pole(QuestWindow& qw) {
         int fl = 0;
         bool fl4 = 0;
@@ -421,8 +439,8 @@ public:
             db.scary();
             q2.addQuest("The ability of objects of different classes to use the same interface");
             q2.changeAnswer(4, "A mechanism that allows extending system functionality...");
-            p.time_reduce(5);
-            p.reducestatus();
+            reduceTime(5);
+            reduceStatus();
 
             questions q4("Complex OOP question", 0, {
                 "1", "2", "3", "4"
@@ -430,14 +448,14 @@ public:
 
             int elapsed4;
             if (q4.askQuestSFML(qw, elapsed4)) {
-                p.time_reduce(elapsed4);
-                p.score_plus(20);
+                reduceTime(elapsed4);
+                addScore(20);
                 fl += 1;
             }
             else {
-                p.time_reduce(elapsed4);
+                reduceTime(elapsed4);
                 db.pain();
-                p.score_minus(10);
+                reduceScore(10);
             }
         }
         else {
@@ -446,54 +464,54 @@ public:
 
         int elapsed1;
         if (q1.askQuestSFML(qw, elapsed1)) {
-            p.time_reduce(elapsed1);
+            reduceTime(elapsed1);
             fl += 1;
-            p.score_plus(20);
+            addScore(20);
         }
         else {
-            p.time_reduce(elapsed1);
+            reduceTime(elapsed1);
             if (fl4 && fl == 0) {
-                return 666;  // смерть
+                return 666;
             }
-            p.score_minus(10);
+            reduceScore(10);
             db.pain();
         }
 
         int elapsed2;
         if (q2.askQuestSFML(qw, elapsed2)) {
-            p.time_reduce(elapsed2);
-            p.score_plus(20);
+            reduceTime(elapsed2);
+            addScore(20);
             fl += 1;
         }
         else {
-            p.time_reduce(elapsed2);
+            reduceTime(elapsed2);
             if (fl == 1 && fl4) {
                 return 666;
             }
             else if (fl == 0 && !fl4) {
                 return 666;
             }
-            p.score_minus(10);
+            reduceScore(10);
             db.pain();
         }
 
         int elapsed3;
         if (q3.askQuestSFML(qw, elapsed3)) {
-            p.time_reduce(elapsed3);
-            p.score_plus(20);
+            reduceTime(elapsed3);
+            addScore(20);
             fl += 1;
         }
         else {
-            p.time_reduce(elapsed3);
+            reduceTime(elapsed3);
             if (fl4 && fl == 2) {
                 questions q5("Complex OOP question", 1, {
                     "1$", "2", "3@", "4#", "5"
                     });
                 int elapsed4;
                 if (q5.askQuestSFML(qw, elapsed4)) {
-                    p.time_reduce(elapsed4);
+                    reduceTime(elapsed4);
                     db.pain();
-                    p.score_minus(10);
+                    reduceScore(10);
                     fl = -1;
                 }
                 else {
@@ -506,9 +524,9 @@ public:
                     });
                 int elapsed5;
                 if (q6.askQuestSFML(qw, elapsed5)) {
-                    p.time_reduce(elapsed5);
+                    reduceTime(elapsed5);
                     db.pain();
-                    p.score_minus(10);
+                    reduceScore(10);
                     fl = -1;
                 }
                 else {
@@ -516,57 +534,69 @@ public:
                 }
             }
             else {
-                p.score_minus(10);
+                reduceScore(10);
                 db.pain();
             }
         }
 
-        if (!p.isAlive()) {
+        if (!isAlive()) {
             return -1;
         }
 
         if (fl == -1) {
             b.moral();
-            p.score_plus(50);
-            return 13;  // особая победа
+            addScore(50);
+            return 13;
         }
         else if (fl >= 2) {
             b.moral();
-            p.score_plus(100);
+            addScore(100);
             return 1;
         }
         else {
-            p.score_minus(50);
+            reduceScore(50);
             return 0;
         }
     }
 };
 
-class loc3 {
+// ==================== LOC3 ====================
+class loc3 : public lvls {
 public:
-    player& p;
-
-    loc3(player& playerRef) : p(playerRef) {}
+    loc3(player& playerRef) : lvls(playerRef) {}
 
     int l1(QuestWindow& qw) {
-        questions q("Необходимо написать код, который считает 2+2 и выводит ответ с помощью cout", "4");
+        string task = "Необходимо написать код, который считает 2+2 и выводит ответ с помощью cout";
+        string expected = "4";
+
+        // Если статус негативный - задача усложняется
+        if (p.get_status() > 0) {
+            reduceTime(5);
+            reducestatus();
+            task = "Необходимо написать код, который считает 2+2, затем умножает на 3, и выводит ответ с помощью cout";
+            expected = "12";
+        }
+
+        questions q(task, expected);
+
         int elapsed;
         if (q.ask_code_QuestSFML(qw, elapsed)) {
-            p.time_reduce(elapsed);
-            p.score_plus(20);
-            buff b(p, 1);
-            b.moral();
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            addScore(20);
+            applyBuff(1);
+            if (!isAlive()) return -1;
             return 1;
         }
         else {
-            p.time_reduce(elapsed);
-            debuf db(p, 2);
-            p.time_reduce(10);
-            db.pain();
-            p.score_minus(10);
-            if (!p.isAlive()) return -1;
+            reduceTime(elapsed);
+            reduceScore(10);
+            reduceTime(10);
+            applyDebuff(2, "pain");
+            if (!isAlive()) return -1;
             return 0;
         }
+    }
+    int l2(QuestWindow& qw) {
+        questions q()
     }
 };
