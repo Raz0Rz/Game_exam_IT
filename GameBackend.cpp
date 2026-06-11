@@ -53,6 +53,7 @@ public:
             "#include <iostream>\n"
             "#include <string>\n"
             "#include <vector>\n"
+            "#include <algorithm>\n"
             "using namespace std;\n\n"
             + userCode;
 
@@ -70,7 +71,7 @@ public:
             return res;
         }
 
-        system("temp.exe > out.txt");
+        system("timeout /t 10 /nobreak >nul & temp.exe > out.txt 2>&1");
 
         ifstream out("out.txt");
         getline(out, res.output, '\0');
@@ -160,12 +161,13 @@ private:
     int idOtv;
     vector<string> varOtv;
     string expected;
+    vector<string> requiredCode;
 public:
     questions(string txt, int id, vector<string> var)
         : txtQuest(txt), idOtv(id), varOtv(var) {
     }
-    questions(string txt, string code)
-        : txtQuest(txt), expected(code) {
+    questions(string txt, string code, vector<string> req = {})
+        : txtQuest(txt), expected(code), requiredCode(req) {
     }
 
     void addQuest(string name_quest) {
@@ -188,6 +190,13 @@ public:
     bool ask_code_QuestSFML(QuestWindow& qw, int& elapsed) {
         auto start = chrono::steady_clock::now();
         string userCode = qw.getCode(txtQuest);
+
+        for (const auto& req : requiredCode) {
+            if (userCode.find(req) == string::npos) {
+                return false;
+            }
+        }
+
         Compiler compiler;
         auto result = compiler.compileAndRun(userCode, expected);
         auto end = chrono::steady_clock::now();
@@ -572,9 +581,9 @@ public:
         // Если статус негативный - задача усложняется
         if (p.get_status() > 0) {
             reduceTime(5);
-            reducestatus();
-            task = "Необходимо написать код, который считает 2+2, затем умножает на 3, и выводит ответ с помощью cout";
-            expected = "12";
+            reduceStatus();
+            task = "Напишите программу, которая выводит результат 15 * 3 - 8 / 2";
+            expected = "41";
         }
 
         questions q(task, expected);
@@ -597,6 +606,36 @@ public:
         }
     }
     int l2(QuestWindow& qw) {
-        questions q()
+        bool fl = 0;
+        string task = "Напишите функцию int square(int x), которая возвращает квадрат числа. Вызовите её для числа 5 и выведите результат";
+        string expected = "25";
+        vector<string> req = { "int square(int x)" };
+        if (p.get_status() > 0) {
+            reduceTime(5);
+            reduceStatus();
+            task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива с использованием встроенных методов STL\n";
+            task += "Использовать while или for запрещено";
+            expected = "0 1 2 2 3 4 5 8 8 10";
+            req = { "sort" };
+            fl = 1;
+        }
+
+        questions q(task, expected, req);
+        int elapsed;
+        if (q.ask_code_QuestSFML(qw, elapsed)) {
+            if (fl) {
+                applyBuff(1);
+            }
+            addScore(20);
+            if (!isAlive()) return -1;
+            return 1;
+        }
+        else {
+            applyDebuff(1);
+            reduceScore(10);
+            reduceTime(10);
+            if (!isAlive()) return -1;
+            return 0;
+        }
     }
 };
