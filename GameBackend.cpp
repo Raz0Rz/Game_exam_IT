@@ -34,8 +34,6 @@ public:
         // АНТИ-ЧИТ
         vector<string> forbidden = {
             "system(",
-            "while",
-            "for",
             "goto",
             "#define"
         };
@@ -71,7 +69,7 @@ public:
             return res;
         }
 
-        system("timeout /t 10 /nobreak >nul & temp.exe > out.txt 2>&1");
+        system("timeout /t 5 /nobreak >nul & temp.exe > out.txt 2>&1");
 
         ifstream out("out.txt");
         getline(out, res.output, '\0');
@@ -575,18 +573,19 @@ public:
     loc3(player& playerRef) : lvls(playerRef) {}
 
     int l1(QuestWindow& qw) {
-        string task = "Необходимо написать код, который считает 2+2 и выводит ответ с помощью cout";
+        applyDebuff(2, "scarry");
+        string task = "Необходимо написать код, который считает 2+2. Вы должны создать хотя бы 1 переменную (result) и вывести её с помощью cout.";
         string expected = "4";
-
+        vector<string> req = { "result" };
         // Если статус негативный - задача усложняется
         if (p.get_status() > 0) {
             reduceTime(5);
             reduceStatus();
-            task = "Напишите программу, которая выводит результат 15 * 3 - 8 / 2";
+            task = "Напишите программу, которая выводит результат 15 * 3 - 8 / 2. Вы должны создать хотя бы 1 переменную (result) и вывести её с помощью cout.";
             expected = "41";
         }
 
-        questions q(task, expected);
+        questions q(task, expected, req);
 
         int elapsed;
         if (q.ask_code_QuestSFML(qw, elapsed)) {
@@ -600,12 +599,13 @@ public:
             reduceTime(elapsed);
             reduceScore(10);
             reduceTime(10);
-            applyDebuff(2, "pain");
+            applyDebuff(1, "pain");
             if (!isAlive()) return -1;
             return 0;
         }
     }
-    int l2(QuestWindow& qw) {
+    int l21(QuestWindow& qw) {
+        applyDebuff(1);
         bool fl = 0;
         string task = "Напишите функцию int square(int x), которая возвращает квадрат числа. Вызовите её для числа 5 и выведите результат";
         string expected = "25";
@@ -613,7 +613,7 @@ public:
         if (p.get_status() > 0) {
             reduceTime(5);
             reduceStatus();
-            task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива с использованием встроенных методов STL\n";
+            task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по возрастанию с использованием встроенных методов STL\n";
             task += "Использовать while или for запрещено";
             expected = "0 1 2 2 3 4 5 8 8 10";
             req = { "sort" };
@@ -637,5 +637,134 @@ public:
             if (!isAlive()) return -1;
             return 0;
         }
+    }
+    int l22(QuestWindow& qw) {
+        applyDebuff(1);
+        bool fl = 0;
+        string task = "Напишите функцию int sqr(int x), которая возвращает корень числа. Вызовите её для числа 64 и выведите результат";
+        string expected = "8";
+        vector<string> req = { "int sqr(int x)" };
+        if (p.get_status() > 0) {
+            reduceTime(5);
+            reduceStatus();
+            task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по убыванию с использованием встроенных методов STL\n";
+            expected = "10 8 8 5 4 3 2 2 1 0";
+            req = { "sort" };
+            fl = 1;
+        }
+        questions q(task, expected, req);
+        int elapsed;
+        if (q.ask_code_QuestSFML(qw, elapsed)) {
+            if (fl) {
+                applyBuff(1);
+            }
+            addScore(20);
+            if (!isAlive()) return -1;
+            return 1;
+        }
+        else {
+            applyDebuff(1);
+            reduceScore(10);
+            reduceTime(10);
+            if (!isAlive()) return -1;
+            return 0;
+        }
+    }
+    int r1(QuestWindow& qw) {
+        applyBuff(2);
+        string task = "Необходимо написать код, который считает 3+3. Вы должны создать хотя бы 1 переменную (result) и вывести её с помощью cout.";
+        string expected = "6";
+        vector<string> req = { "result" };
+        if (p.get_status() > 0) {
+            reduceTime(5);
+            reduceStatus();
+            task = "Напишите программу, которая выводит результат 24 * 5 - 12 / 4. Вы должны создать хотя бы 1 переменную (result) и вывести её с помощью cout.";
+            expected = "117";
+        }
+        questions q(task, expected, req);
+
+        int elapsed;
+        if (q.ask_code_QuestSFML(qw, elapsed)) {
+            reduceTime(elapsed);
+            addScore(20);
+            if (!isAlive()) return -1;
+            return 1;
+        }
+        else {
+            reduceTime(elapsed);
+            reduceScore(10);
+            reduceTime(10);
+            applyDebuff(2, "pain");
+            if (!isAlive()) return -1;
+            return 0;
+        }
+    }
+    int r21() {
+        applyBuff(1);
+        bool fl = 0;
+        string task = "Напишите функцию int fac(int x), которая возвращает факториал числа. Вызовите её для числа 12 и выведите результат";
+        string expected = "479001600";
+        vector<string> req = { "int fac(int x)" };
+        if (p.get_status() > 0) {
+            reduceTime(5);
+            reduceStatus();
+            task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по возрастанию с использованием встроенных методов STL\n";
+            expected = "0 1 2 2 3 4 5 8 8 10";
+            req = { "sort" };
+            fl = 1;
+        }
+
+        questions q(task, expected, req);
+        int elapsed;
+        if (q.ask_code_QuestSFML(qw, elapsed)) {
+            if (fl) {
+                applyBuff(1);
+            }
+            addScore(20);
+            if (!isAlive()) return -1;
+            return 1;
+        }
+        else {
+            applyDebuff(2);
+            reduceScore(10);
+            reduceTime(10);
+            if (!isAlive()) return -1;
+            return 0;
+        }
+    }
+    int r22() {
+        applyBuff(1);
+        bool fl = 0;
+        string task = "Напишите функцию int sqr(int x), которая возвращает корень числа. Вызовите её для числа 64 и выведите результат";
+        string expected = "8";
+        vector<string> req = { "int sqr(int x)" };
+        if (p.get_status() > 0) {
+            reduceTime(5);
+            reduceStatus();
+            task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по убыванию с использованием встроенных методов STL\n";
+            expected = "10 8 8 5 4 3 2 2 1 0";
+            req = { "sort" };
+            fl = 1;
+        }
+        questions q(task, expected, req);
+        int elapsed;
+        if (q.ask_code_QuestSFML(qw, elapsed)) {
+            if (fl) {
+                applyBuff(1);
+            }
+            addScore(20);
+            if (!isAlive()) return -1;
+            return 1;
+        }
+        else {
+            applyDebuff(2);
+            reduceScore(10);
+            reduceTime(10);
+            if (!isAlive()) return -1;
+            return 0;
+        }
+    }
+    int boss3() {
+
     }
 };
