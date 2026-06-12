@@ -52,6 +52,7 @@ public:
             "#include <string>\n"
             "#include <vector>\n"
             "#include <algorithm>\n"
+            "#include <cmath>\n"
             "using namespace std;\n\n"
             + userCode;
 
@@ -616,7 +617,7 @@ public:
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по возрастанию с использованием встроенных методов STL\n";
             task += "Использовать while или for запрещено";
             expected = "0 1 2 2 3 4 5 8 8 10";
-            req = { "sort" };
+            req = { "sort", "vector"};
             fl = 1;
         }
 
@@ -626,11 +627,13 @@ public:
             if (fl) {
                 applyBuff(1);
             }
+            reduceTime(elapsed);
             addScore(20);
             if (!isAlive()) return -1;
             return 1;
         }
         else {
+            reduceTime(elapsed);
             applyDebuff(1);
             reduceScore(10);
             reduceTime(10);
@@ -649,7 +652,7 @@ public:
             reduceStatus();
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по убыванию с использованием встроенных методов STL\n";
             expected = "10 8 8 5 4 3 2 2 1 0";
-            req = { "sort" };
+            req = { "sort", "vector"};
             fl = 1;
         }
         questions q(task, expected, req);
@@ -658,11 +661,13 @@ public:
             if (fl) {
                 applyBuff(1);
             }
+            reduceTime(elapsed);
             addScore(20);
             if (!isAlive()) return -1;
             return 1;
         }
         else {
+            reduceTime(elapsed);
             applyDebuff(1);
             reduceScore(10);
             reduceTime(10);
@@ -699,7 +704,7 @@ public:
             return 0;
         }
     }
-    int r21() {
+    int r21(QuestWindow& qw) {
         applyBuff(1);
         bool fl = 0;
         string task = "Напишите функцию int fac(int x), которая возвращает факториал числа. Вызовите её для числа 12 и выведите результат";
@@ -710,7 +715,7 @@ public:
             reduceStatus();
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по возрастанию с использованием встроенных методов STL\n";
             expected = "0 1 2 2 3 4 5 8 8 10";
-            req = { "sort" };
+            req = { "sort", "vector"};
             fl = 1;
         }
 
@@ -720,11 +725,13 @@ public:
             if (fl) {
                 applyBuff(1);
             }
+            reduceTime(elapsed);
             addScore(20);
             if (!isAlive()) return -1;
             return 1;
         }
         else {
+            reduceTime(elapsed);
             applyDebuff(2);
             reduceScore(10);
             reduceTime(10);
@@ -732,7 +739,7 @@ public:
             return 0;
         }
     }
-    int r22() {
+    int r22(QuestWindow& qw) {
         applyBuff(1);
         bool fl = 0;
         string task = "Напишите функцию int sqr(int x), которая возвращает корень числа. Вызовите её для числа 64 и выведите результат";
@@ -743,7 +750,7 @@ public:
             reduceStatus();
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по убыванию с использованием встроенных методов STL\n";
             expected = "10 8 8 5 4 3 2 2 1 0";
-            req = { "sort" };
+            req = { "sort", "vector"};
             fl = 1;
         }
         questions q(task, expected, req);
@@ -752,11 +759,13 @@ public:
             if (fl) {
                 applyBuff(1);
             }
+            reduceTime(elapsed);
             addScore(20);
             if (!isAlive()) return -1;
             return 1;
         }
         else {
+            reduceTime(elapsed);
             applyDebuff(2);
             reduceScore(10);
             reduceTime(10);
@@ -764,7 +773,38 @@ public:
             return 0;
         }
     }
-    int boss3() {
+    int boss3(QuestWindow& qw) {
+        int flH = 0;
+        if (p.get_status() > 0) {
+            reduceTime(30);
+            applyDebuff(1);
+            if (!isAlive) {
+                return -1;
+            }
+            flH = 1;
+        }
 
+        questions q1("hard quest OOP", 2, {
+            "1",
+            "2",
+            "3",
+            "4"
+            });
+        if (flH) {
+            q1.addQuest("5"); //correct answ
+            q1.changeAnswer(4, "3");
+            q1.addQuest("6");
+        }
+        vector <string> req = { "class air", "private", "public", "obj", "length = 14.5", "width = 14", "height = 4" };
+        questions q1code("Напишите класс air в котором будут обьявлены 3 приватных поля: "
+            "length = 14.5, width = 14, height = 4. "
+            "Написать метод для вывода полей length и width. "
+            "Создать в main обьект с именем obj и применить метод. ", "14.5 14", req);
+
+        int elapsed;
+        if (q1.askQuestSFML(qw, elapsed)) {
+            
+        }
+       
     }
 };
