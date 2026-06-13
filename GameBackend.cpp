@@ -774,7 +774,7 @@ public:
         }
     }
     int boss3(QuestWindow& qw) {
-        int flH = 0;
+        int flH = 0, flp = 0, flt = 0, fle = 0;
         if (p.get_status() > 0) {
             reduceTime(30);
             applyDebuff(1);
@@ -791,8 +791,8 @@ public:
             "4"
             });
         if (flH) {
-            q1.addQuest("5"); //correct answ
-            q1.changeAnswer(4, "3");
+            q1.addQuest("3"); //correct answ
+            q1.changeAnswer(4, "5");
             q1.addQuest("6");
         }
         vector <string> req = { "class air", "private", "public", "obj", "length = 14.5", "width = 14", "height = 4" };
@@ -803,8 +803,120 @@ public:
 
         int elapsed;
         if (q1.askQuestSFML(qw, elapsed)) {
-            
+            flt++;
+            addScore(10);
         }
-       
+        else {
+            reduceScore(5);
+        }
+
+        reduceTime(elapsed);
+
+        if (q1code.ask_code_QuestSFML(qw, elapsed)) {
+            flp++;
+            addScore(10);
+        }
+        else {
+            reduceScore(5);
+        }
+
+        reduceTime(elapsed);
+
+        if (flH == 1) {
+            reduceTime(p.get_status() * 5);
+        }
+
+        if (!isAlive()) {
+            return -1;
+        }
+
+        questions q2("Что такое глубокое копирование?", 0, {
+            "1",
+            "2",
+            "3",
+            "4"
+            });
+
+        string task = "Создать базовый класс animal с 2мя приватными полями count = 5, weight = 10 и класс насследник cat. "
+            "Класс насследник должен иметь доступ к методу void print() из базового класса, который выводит приватные поля. "
+            "Вам нужно создать обьект с именем obj класса cat и использовать метод print().";
+        string expect = "5, 10";
+        vector <string> req = { "class animal", "private", "public", "obj", "count = 5", "weight = 10", "class cat", "void print()"};
+
+        questions q2code(task, expect, req);
+
+        if (q2.askQuestSFML(qw, elapsed)) {
+            flt++;
+            addScore(10);
+        }
+        else {
+            reduceScore(5);
+        }
+
+        reduceTime(elapsed);
+
+        if (q2.ask_code_QuestSFML(qw, elapsed)) {
+            flp++;
+            addScore(10);
+            reduceTime(elapsed);
+        }
+        else {
+            if (flp == 0 && flt == 2) {
+                task = "Ну, ты хотя бы знаешь теорию, попробуй практику ещё раз. "
+                "Я заебался составлять вопросы ООП";
+                expect = "ФУ БЛЯТЬ";
+                vector <string> req = { "БЕ" };
+
+                questions qCodeDop(task, expect, req);
+
+                if(!qCodeDop.ask_code_QuestSFML(qw, elapsed)){
+                    return 666;
+                }
+                else {
+                    reduceTime(elapsed);
+                    reduceScore(5);
+                    fle = 1;
+                }
+            }
+            else {
+                return 666;
+            }
+            reduceScore(5);
+        }
+
+        if (!isAlive()) {
+            return -1;
+        }
+        
+        if (flt == 0 && flp == 2) {
+            questions qdopTeor("Ну хотя бы ты знаешь практику, попробуй теорию ещё раз. Сложный вопрос ООП", 0, {
+                "1",
+                "2",
+                "3",
+                "4",
+                "5"
+                });
+            if (!qdopTeor.askQuestSFML(qw, elapsed)) {
+                return 666;
+            }
+            else {
+                reduceTime(elapsed);
+                reduceScore(5);
+                fle = 1;
+            }
+        }
+        else {
+            return 666;
+        }
+
+        if (flH == 1) {
+            reduceTime(p.get_status() * 5);
+        }
+
+        if (!isAlive()) {
+            return -1;
+        }
+        
+
     }
 };
