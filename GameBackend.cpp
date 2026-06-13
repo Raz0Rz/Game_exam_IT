@@ -15,6 +15,116 @@
 using namespace std;
 namespace fs = std::filesystem;
 
+// ==================== АНТИ-ЧИТ СИСТЕМА ====================
+class AntiCheat {
+public:
+    struct Rule {
+        string pattern;
+        string message;
+        int severity; // 1 = предупреждение, 2 = бан
+    };
+
+    struct CheckResult {
+        bool passed;
+        vector<string> warnings;
+        vector<string> bans;
+    };
+
+private:
+    vector<Rule> rules = {
+        // Запрет системных вызовов
+        {"system",       "Запрещено выполнять системные команды", 2},
+        {"popen",        "Запрещено открывать процессы", 2},
+        {"exec",         "Запрещено выполнять программы", 2},
+        {"fork",         "Запрещено создавать процессы", 2},
+        {"createprocess","Запрещено создавать процессы Windows", 2},
+        {"shellexecute", "Запрещено открывать приложения", 2},
+        {"winexec",      "Запрещено запускать программы", 2},
+
+        // Запрет работы с файлами
+        {"fopen",        "Запрещено открывать файлы", 2},
+        {"fstream",      "Запрещено работать с файлами", 2},
+        {"ofstream",     "Запрещено писать в файлы", 2},
+        {"ifstream",     "Запрещено читать файлы", 2},
+        {"fwrite",       "Запрещено писать в файлы", 2},
+        {"fread",        "Запрещено читать файлы", 2},
+        {"remove",       "Запрещено удалять файлы", 2},
+        {"rename",       "Запрещено переименовывать файлы", 2},
+
+        // Запрет обхода
+        {"#define",      "Запрещено использовать макросы", 1},
+        {"#include",     "Запрещено подключать свои библиотеки", 2},
+        {"#pragma",      "Запрещены директивы компилятора", 1},
+        {"__asm",        "Запрещена ассемблерная вставка", 2},
+
+        // Запрет бесконечных циклов
+        {"while(true)",  "Подозрительный бесконечный цикл", 1},
+        {"for(;;)",      "Подозрительный бесконечный цикл", 1},
+
+        // Запрет работы с памятью
+        {"malloc",       "Запрещено ручное выделение памяти", 1},
+        {"calloc",       "Запрещено ручное выделение памяти", 1},
+        {"realloc",      "Запрещено перевыделение памяти", 1},
+        {"free",         "Запрещено освобождать память вручную", 1},
+        {"memcpy",       "Запрещено копировать память", 1},
+        {"memset",       "Запрещено работать с памятью напрямую", 1},
+        {"mmap",         "Запрещено отображать память", 2},
+    };
+
+    string normalize(const string& code) {
+        string result;
+        bool inString = false;
+
+        for (size_t i = 0; i < code.size(); i++) {
+            // Отслеживаем строки (в них античит не ищем)
+            if (code[i] == '"' && (i == 0 || code[i - 1] != '\\')) {
+                inString = !inString;
+                if (!inString) continue;
+            }
+
+            // Пропускаем однострочные комментарии
+            if (!inString && code[i] == '/' && i + 1 < code.size() && code[i + 1] == '/') {
+                break; // до конца строки
+            }
+
+            if (inString) continue;
+
+            // Приводим к нижнему регистру
+            result += tolower(code[i]);
+        }
+
+        // Удаляем все пробелы для поиска паттернов с пробелами
+        string nospaces;
+        for (char c : result) {
+            if (!isspace(c)) nospaces += c;
+        }
+
+        return nospaces;
+    }
+
+public:
+    CheckResult check(const string& userCode) {
+        CheckResult res;
+        res.passed = true;
+
+        string normalized = normalize(userCode);
+
+        for (const auto& rule : rules) {
+            if (normalized.find(rule.pattern) != string::npos) {
+                if (rule.severity == 2) {
+                    res.bans.push_back(rule.message);
+                    res.passed = false;
+                }
+                else {
+                    res.warnings.push_back(rule.message);
+                }
+            }
+        }
+
+        return res;
+    }
+};
+
 class Compiler {
 public:
     struct Result {
@@ -31,18 +141,23 @@ public:
         res.passed = false;
         res.cheatDetected = false;
 
-        // АНТИ-ЧИТ
-        vector<string> forbidden = {
-            "system(",
-            "goto",
-            "#define"
-        };
+        // АНТИ-ЧИТ (уровень 2)
+        AntiCheat ac;
+        auto check = ac.check(userCode);
 
-        for (const auto& pattern : forbidden) {
-            if (userCode.find(pattern) != string::npos) {
-                res.cheatDetected = true;
-                res.error = "Запрещенная конструкция: " + pattern;
-                return res;
+        if (!check.passed) {
+            res.cheatDetected = true;
+            res.error = "Обнаружены запрещенные конструкции:\n";
+            for (const auto& ban : check.bans) {
+                res.error += "- " + ban + "\n";
+            }
+            return res;
+        }
+
+        if (!check.warnings.empty()) {
+            res.output += "Предупреждения:\n";
+            for (const auto& warn : check.warnings) {
+                res.output += "- " + warn + "\n";
             }
         }
 
@@ -115,19 +230,12 @@ public:
     }
 };
 
-class effect {
-public:
-    virtual ~effect() = default;
-    virtual string getName() const = 0;
-};
-
-class debuf : public effect {
+class debuf {
 private:
     int sec;
     player& p;
 public:
     debuf(player& playerRef, int t = 2) : p(playerRef), sec(t) {}
-    string getName() const override { return "Time reduction"; }
 
     void water() {
         p.addstatus(sec);
@@ -140,13 +248,12 @@ public:
     }
 };
 
-class buff : public effect {
+class buff {
 private:
     int sec;
     player& p;
 public:
     buff(player& playerRef, int t = 1) : p(playerRef), sec(t) {}
-    string getName() const override { return "Time increase"; }
 
     void moral() {
         p.reducestatus();
@@ -574,7 +681,7 @@ public:
     loc3(player& playerRef) : lvls(playerRef) {}
 
     int l1(QuestWindow& qw) {
-        applyDebuff(2, "scarry");
+        applyDebuff(2, "scary");
         string task = "Необходимо написать код, который считает 2+2. Вы должны создать хотя бы 1 переменную (result) и вывести её с помощью cout.";
         string expected = "4";
         vector<string> req = { "result" };
@@ -617,7 +724,7 @@ public:
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по возрастанию с использованием встроенных методов STL\n";
             task += "Использовать while или for запрещено";
             expected = "0 1 2 2 3 4 5 8 8 10";
-            req = { "sort", "vector"};
+            req = { "sort", "vector" };
             fl = 1;
         }
 
@@ -652,7 +759,7 @@ public:
             reduceStatus();
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по убыванию с использованием встроенных методов STL\n";
             expected = "10 8 8 5 4 3 2 2 1 0";
-            req = { "sort", "vector"};
+            req = { "sort", "vector" };
             fl = 1;
         }
         questions q(task, expected, req);
@@ -715,7 +822,7 @@ public:
             reduceStatus();
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по возрастанию с использованием встроенных методов STL\n";
             expected = "0 1 2 2 3 4 5 8 8 10";
-            req = { "sort", "vector"};
+            req = { "sort", "vector" };
             fl = 1;
         }
 
@@ -750,7 +857,7 @@ public:
             reduceStatus();
             task = "Вам нужно создать вектор [5, 8, 1, 2, 4, 8, 2, 0, 10, 3], после этого написать ф-цию сортировки массива по убыванию с использованием встроенных методов STL\n";
             expected = "10 8 8 5 4 3 2 2 1 0";
-            req = { "sort", "vector"};
+            req = { "sort", "vector" };
             fl = 1;
         }
         questions q(task, expected, req);
@@ -778,7 +885,7 @@ public:
         if (p.get_status() > 0) {
             reduceTime(30);
             applyDebuff(1);
-            if (!isAlive) {
+            if (!isAlive()) {
                 return -1;
             }
             flH = 1;
@@ -808,6 +915,7 @@ public:
         }
         else {
             reduceScore(5);
+            applyDebuff(1);
         }
 
         reduceTime(elapsed);
@@ -817,6 +925,7 @@ public:
             addScore(10);
         }
         else {
+            applyDebuff(1);
             reduceScore(5);
         }
 
@@ -841,7 +950,7 @@ public:
             "Класс насследник должен иметь доступ к методу void print() из базового класса, который выводит приватные поля. "
             "Вам нужно создать обьект с именем obj класса cat и использовать метод print().";
         string expect = "5, 10";
-        vector <string> req = { "class animal", "private", "public", "obj", "count = 5", "weight = 10", "class cat", "void print()"};
+        vector <string> req = { "class animal", "private", "public", "obj", "count = 5", "weight = 10", "class cat", "void print()" };
 
         questions q2code(task, expect, req);
 
@@ -855,7 +964,7 @@ public:
 
         reduceTime(elapsed);
 
-        if (q2.ask_code_QuestSFML(qw, elapsed)) {
+        if (q2code.ask_code_QuestSFML(qw, elapsed)) {
             flp++;
             addScore(10);
             reduceTime(elapsed);
@@ -863,31 +972,34 @@ public:
         else {
             if (flp == 0 && flt == 2) {
                 task = "Ну, ты хотя бы знаешь теорию, попробуй практику ещё раз. "
-                "Я заебался составлять вопросы ООП";
+                    "Я заебался составлять вопросы ООП";
                 expect = "ФУ БЛЯТЬ";
                 vector <string> req = { "БЕ" };
 
                 questions qCodeDop(task, expect, req);
 
-                if(!qCodeDop.ask_code_QuestSFML(qw, elapsed)){
+                if (!qCodeDop.ask_code_QuestSFML(qw, elapsed)) {
                     return 666;
                 }
                 else {
+                    applyBuff(1);
                     reduceTime(elapsed);
                     reduceScore(5);
                     fle = 1;
                 }
             }
+            else if (flp == 1) {
+                reduceScore(5);
+            }
             else {
                 return 666;
             }
-            reduceScore(5);
         }
 
         if (!isAlive()) {
             return -1;
         }
-        
+
         if (flt == 0 && flp == 2) {
             questions qdopTeor("Ну хотя бы ты знаешь практику, попробуй теорию ещё раз. Сложный вопрос ООП", 0, {
                 "1",
@@ -903,20 +1015,131 @@ public:
                 reduceTime(elapsed);
                 reduceScore(5);
                 fle = 1;
+                applyBuff(1);
             }
+        }
+        else if (flt == 1) {
+            reduceScore(5);
+            reduceTime(elapsed);
         }
         else {
             return 666;
         }
 
-        if (flH == 1) {
+        if (flH) {
             reduceTime(p.get_status() * 5);
         }
 
         if (!isAlive()) {
             return -1;
         }
-        
 
+        questions q3("Сложный вопрос по ООП", 3, {
+            "1",
+            "2",
+            "3",
+            "4"
+            });
+
+        task = "Я по прежнему заебался писать вопросы";
+        expect = "ыыы";
+        req = { "быыыыуйуцйу" };
+
+        if (flH) {
+            task = "Усложнить задачу";
+            expect = "Новый ответ";
+            req = { "" };
+        }
+
+        questions q3Code(task, expect, req);
+
+        if (q3.askQuestSFML(qw, elapsed)) {
+            addScore(10);
+            applyBuff(1);
+            reduceTime(elapsed);
+        }
+        else {
+            if (flt == 1 && !fle) {
+                questions qDopTeor("Последний шанс", 1, {
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    });
+
+                if (!qDopTeor.askQuestSFML(qw, elapsed)) {
+                    return 666;
+                }
+                else {
+                    fle = 1;
+                    reduceScore(5);
+                    applyBuff(1);
+                    reduceTime(elapsed);
+                }
+            }
+            else if (flt == 2) {
+                reduceScore(5);
+                reduceTime(elapsed);
+            }
+            else {
+                return 666;
+            }
+        }
+
+        if (!isAlive()) {
+            return -1;
+        }
+
+        if (q3Code.ask_code_QuestSFML(qw, elapsed)) {
+            addScore(10);
+            reduceTime(elapsed);
+            applyBuff(1);
+        }
+        else {
+            if (flp == 1 && !fle) {
+                task = "";
+                expect = "";
+                req = { "" };
+                questions qDopCode(task, expect, req);
+
+                if (!qDopCode.ask_code_QuestSFML(qw, elapsed)) {
+                    return 666;
+                }
+                else {
+                    fle = 1;
+                    reduceScore(5);
+                    applyBuff(1);
+                    reduceTime(elapsed);
+                }
+            }
+            else if (flp == 2) {
+                reduceScore(5);
+                reduceTime(elapsed);
+            }
+            else {
+                return 666;
+            }
+        }
+
+        if (flH) {
+            reduceTime(p.get_status() * 5);
+        }
+
+        if (!isAlive()) {
+            return -1;
+        }
+
+        if (fle) {
+            addScore(50);
+            return 13;
+        }
+        else if (flt >= 2 && flp >= 2) {
+            addScore(100);
+            return 1;
+        }
+        else {
+            reduceScore(50);
+            return 0;
+        }
     }
 };
