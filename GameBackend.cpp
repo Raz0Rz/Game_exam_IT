@@ -950,7 +950,7 @@ public:
             "Класс насследник должен иметь доступ к методу void print() из базового класса, который выводит приватные поля. "
             "Вам нужно создать обьект с именем obj класса cat и использовать метод print().";
         string expect = "5, 10";
-        vector <string> req = { "class animal", "private", "public", "obj", "count = 5", "weight = 10", "class cat", "void print()" };
+        req = { "class animal", "private", "public", "obj", "count = 5", "weight = 10", "class cat", "void print()" };
 
         questions q2code(task, expect, req);
 
@@ -974,7 +974,7 @@ public:
                 task = "Ну, ты хотя бы знаешь теорию, попробуй практику ещё раз. "
                     "Я заебался составлять вопросы ООП";
                 expect = "ФУ БЛЯТЬ";
-                vector <string> req = { "БЕ" };
+                req = { "БЕ" };
 
                 questions qCodeDop(task, expect, req);
 
